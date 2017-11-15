@@ -1,0 +1,1044 @@
+<!--
+ * Aircraft Weight and Balance
+ * @version v0.9
+ * Copyright (c) 2017 Karel De Vogeleer
+ * @license MIT license https://github.com/arxcruncher/weight-and-balance/blob/master/LICENSE
+ -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Weight and Balance">
+    <meta name="author" content="Karel De Vogeleer">
+
+    <title>Weigth &amp; Balance</title>
+
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="css/bootstrap-theme.css" rel="stylesheet">
+    
+    <style>
+		tr.rbold {
+			font-weight: bold;
+		}
+		
+		.good {
+			background-color: #dff0d8;
+			color: #3c763d;
+		}
+		
+		.bad {
+			background-color: #f2dede;
+			color: #a94442;
+		}
+		
+		.w200 {
+			min-width: 200px;
+		}
+
+		.w75 {
+			min-width: 75px;
+		}
+		
+		.w100 {
+			min-width: 100px;
+		}
+		
+		.w125 {
+			min-width: 125px;
+		}
+		
+		.w50 {
+			min-width: 50px;
+		}
+		
+		input {
+			max-width: 100px;
+			text-align: center;
+		}
+		
+		#wandb, th{
+			text-align: center;
+			width: 625px;
+			margin: 0 auto;
+			margin-bottom: 50px;
+		}
+		
+		.substract {
+			color: #a94442;
+			
+		}
+		
+		.substract::before { 
+			content: "-";
+		}
+		
+		.talignl {
+			text-align: left;
+		}
+		
+		.talignr {
+			text-align: right;
+			line-height: 1em;
+			padding-right: 10px;
+		}
+		
+		#wandb-error {
+			margin-top: 50px;
+			display: none;
+		}
+		
+		#selector select, #fuel-panel input, #weight-panel input, #distance-panel input {
+			width: 150px;
+			margin: 2px 0;
+		}
+		
+		#selector-panel, #bandl-plot, .jumbotron, #wandb-error{
+			width: 725px;
+			margin: 0 auto;
+			margin-bottom: 50px;
+		}
+		
+		.jumbotron {
+			margin-bottom: 0;
+		}
+		
+		#fuel-panel, #weight-panel, #distance-panel {
+			width: 200px;
+			margin: 0;
+			margin-bottom: 50px;
+			float: left;
+		}
+		
+		#weight-panel {
+			margin: 0 20px;
+		}
+		
+		.mtooltip {
+			position: relative;
+			display: inline-block;
+			border-bottom: 1px dotted black;
+		}
+
+		.mtooltip .mtooltiptext {
+			visibility: hidden;
+			width: 175px;
+			background-color: black;
+			color: #fff;
+			text-align: center;
+			border-radius: 3px;
+			padding: 5px;
+
+			/* Position the tooltip */
+			position: absolute;
+			z-index: 1;
+		}
+
+		.mtooltip:hover .mtooltiptext {
+			visibility: visible;
+		}
+		
+		.container-table {
+			margin: 0 auto;
+			width: 650px;
+			display: block;
+		}
+		
+		.panel-heading {
+			text-align: center;
+		}
+		
+		@media print {
+			.print-no-show {
+				display: none;
+			}
+		}
+		
+		#selector {
+			width: 100%;
+		}
+		
+		#remaining-load {
+			padding-left: 20px;
+		}
+			
+		.font25 {
+			font-size: 25px;
+		}
+		
+		#disclaimer {
+			text-align: center;
+			font-size: 8px;
+			color: #ddd;
+			margin-bottom: 50px;
+		}
+		
+		#performance-panel {
+			max-width: 750px;
+			margin: 0 auto;
+			margin-bottom: 50px;
+		}
+		
+	</style>
+
+  </head>
+
+  <body>
+
+    <div class="container theme-showcase" role="main">
+      <div style="margin-top:25px" class="jumbotron">
+        <h1>Weight &amp; Balance</h1>
+        <p id="header-subtitle"></p>
+      </div>
+      <div id="disclaimer">DISCLAIMER: the user is solely responsible for ensuring the accuracy of this page content.</div>
+      
+	<div id="selector-panel" class="panel panel-default print-no-show">
+		<div class="panel-heading">
+			<h3 class="panel-title">Configuration</h3>
+		</div>
+		<div class="panel-body">
+			<table id="selector">
+				<tr>
+					<td class="talignr">Aircraft</td>
+					<td>
+						<select id="selector-aircraft">
+						</select>
+					</td>
+					<td rowspan="2">
+						<table id="remaining">
+							<tr>
+								<td style="text-align:right">Remaining Useful Load</td>
+								<td class="font25" rowspan="2"><span id="remaining-load" class="postview">N/A</span> <span class="weight"></span></span></td></tr>
+							<tr>
+								<td style="text-align:right">Normal category</td>
+								<td></td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td class="talignr">Unit System</td>
+					<td>
+						<select id="unit-system">
+							<option value="metric">metric</option>
+							<option value="imperial">imperial</option>
+						</select>
+					</td>
+					<td></td>
+				</tr>
+			</table>
+        </div>
+	</div>
+
+	<div id="wandb-error" class="alert alert-danger" role="alert">
+		<strong>Warning!</strong>
+		<ul id="wandb-error-ul">
+		</ul>
+	</div>
+
+      <div class="row">
+          <table class="table" id="wandb">
+            <thead>
+              <tr>
+                <th class="w200 talignl">Description</th>
+                <th class="w50">Max</th>
+                <th class="w75">Volume (<span class="volume"></span>)</th>
+                <th class="w100">Weight (<span class="weight"></span>)</th>
+                <th class="w100">Arm (<span class="length"></span>)</th>
+                <th class="w125">Moment (<span class="weight"></span>&middot;<span class="length"></span>)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="talignl">Aircraft Empty Weight</td>
+                <td >-</td>
+                <td >-</td>
+                <td id="aircraft_weight" class="weight"></td>
+                <td id="aircraft_arm" class="arm"></td>
+                <td id="aircraft_moment" class="moment"></td>
+              </tr>
+              <tr>
+                <td class="talignl">Fuel (<span class="volume"></span>)</td>
+                <td id="fuel_max" class="postview"></td>
+                <td><input id="fuel_spinner" name="value" value="0" class="vspinner"></td>
+                <td id="fuel_weight" class="weight"></td>
+                <td id="fuel_arm" class="arm"></td>
+                <td id="fuel_moment" class="moment"></td>
+              </tr>
+              <tr>
+                <td class="talignl">Front Seats (<span class="weight"></span>)</td>
+                <td id="pilot_max" class="postview">
+                <td>-</td>
+                <td id="pilot_weight" class="weight"><input id="pilot_spinner" name="value" value="0" class="lspinner"></td>
+                <td id="pilot_arm" class="arm"></td>
+                <td id="pilot_moment" class="moment"></td>
+              </tr>
+              <tr>
+                <td class="talignl">Passenger Seats (<span class="weight"></span>)</td>
+                <td id="passenger_max">-</td>
+                <td>-</td>
+                <td id="passenger_weight" class="weight"><input id="passenger_spinner" name="value" value="0" class="lspinner"></td>
+                <td id="passenger_arm" class="arm"></td>
+                <td id="passenger_moment" class="moment"></td>
+              </tr>
+              <tr>
+                <td class="talignl">Luggage Area (<span class="weight"></span>)</td>
+                <td id="luggage_max" class="postview"></td>
+                <td>-</td>
+                <td id="luggage_weight" class="weight"><input id="luggage_spinner" name="value" value="0" class="lspinner"></td>
+                <td id="luggage_arm" class="arm"></td>
+                <td id="luggage_moment" class="moment"></td>
+              </tr>
+              <tr id="ramp" class="rbold good">
+				  <td class="talignl">Ramp Weight (<span class="weight"></span>)</td>
+				  <td id="ramp_weight_max" class="postview"></td>
+				  <td>-</td>
+				  <td id="ramp_weight_weight" class="postview"></td>
+				  <td id="ramp_weight_arm" class="postview"></td>
+				  <td id="ramp_weight_moment" class="postview"></td>
+              </tr>
+              <tr>
+                <td class="talignl">Taxi Fuel (<span class="volume"></span>)</td>
+                <td>-</td>
+                <td><input id="taxi_fuel_spinner" name="value" value="0" class="vspinner"></td>
+                <td id="taxi_fuel_weight" class="postview substract"></td>
+                <td id="taxi_fuel_arm" class="postview"></td>
+                <td id="taxi_fuel_moment" class="postview substract"></td>
+              </tr>
+              <tr id="takeoff" class="rbold good">
+				  <td class="talignl">Take-off Weight (<span class="weight"></span>)</td>
+				  <td id="takeoff_weight_max" class="postview"></td>
+				  <td>-</td>
+				  <td id="takeoff_weight_weight" class="postview"></td>
+				  <td id="takeoff_weight_arm" class="postview"></td>
+				  <td id="takeoff_weight_moment" class="postview"></td>
+              </tr>
+              <tr>
+                <td class="talignl">Trip Fuel (<span class="volume"></span>)</td>
+                <td>-</td>
+                <td><input id="trip_fuel_spinner" name="value" value="0" class="vspinner"></td>
+                <td id="trip_fuel_weight" class="postview substract"></td>
+                <td id="trip_fuel_arm" class="postview"></td>
+                <td id="trip_fuel_moment" class="postview substract"></td>
+              </tr>
+              <tr id="landing" class="rbold good">
+				  <td class="talignl">Landing Weight (<span class="weight"></span>)</td>
+				  <td id="landing_weight_max">-</td>
+				  <td>-</td>
+				  <td id="landing_weight_weight" class="postview"></td>
+				  <td id="landing_weight_arm" class="postview"></td>
+				  <td id="landing_weight_moment" class="postview"></td>
+              </tr>
+            </tbody>
+          </table>
+    </div>
+    
+    <div class="row">
+       <div id="bandl-plot"></div>
+    </div>
+
+	<div class="row print-no-show">
+		<div class="container-table">
+			<div id="fuel-panel" class="panel panel-default">
+				<div class="panel-heading">
+					<h3 class="panel-title">Fuel (100LL) Convertor</h3>
+				</div>
+				<div class="panel-body">
+					<table>
+						<tr>
+							<td class="talignr">liter</td>
+							<td>
+								<input id="fuel-liter" value="0">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">US gallon</td>
+							<td>
+								<input id="fuel-gallon" value="0">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr"><div class="mtooltip">&#37;<span class="mtooltiptext">Based on the fuel capacity of the <span class="aircraft_call_sign"></span></span></div></td>
+							<td>
+								<input id="fuel-percentage" value="100">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">kilogram</td>
+							<td>
+								<input id="fuel-kilogram" value="">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">pound</td>
+							<td>
+								<input id="fuel-pounds" value="">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+			
+			<div id="weight-panel" class="panel panel-default">
+				<div class="panel-heading">
+					<h3 class="panel-title">Weight Convertor</h3>
+				</div>
+				<div class="panel-body">
+					<table>
+						<tr>
+							<td class="talignr">kilogram</td>
+							<td>
+								<input id="weight-kilogram" value="1">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">pound</td>
+							<td>
+								<input id="weight-pound" value="0">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+			
+			<div id="distance-panel" class="panel panel-default">
+				<div class="panel-heading">
+					<h3 class="panel-title">Distance Convertor</h3>
+				</div>
+				<div class="panel-body">
+					<table>
+						<tr>
+							<td class="talignr">kilometer</td>
+							<td>
+								<input id="distance-kilometer" value="0">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">nautical mile</td>
+							<td>
+								<input id="distance-miles" value="1">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">statute mile</td>
+							<td>
+								<input id="distance-smiles" value="1">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">inch</td>
+							<td>
+								<input id="distance-inch" value="0">
+							</td>
+						</tr>
+						<tr>
+							<td class="talignr">foot</td>
+							<td>
+								<input id="distance-feet" value="0">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script>window.jQuery || document.write('<script src="js/vendor/jquery.min.js"><\/script>')</script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/docs.min.js"></script>
+    <script src="js/plotly-latest.min.js"></script>
+    <script src="js/aircraft.js"></script>
+
+    <script>
+		
+		var ratio_kilogram_to_pound = 2.20462;
+		var ratio_pound_to_kilogram = 1/ratio_kilogram_to_pound;
+		var ratio_usgal_to_liter = 3.78541;
+		var ratio_liter_to_usgal = 1/ratio_usgal_to_liter;
+		var ratio_100LL_liter_to_kilogram = 0.721;
+		var ratio_100LL_kilogram_to_liter = 1/ratio_100LL_liter_to_kilogram;
+		var ratio_100LL_usgal_to_pound = 6.02;
+		var ratio_100LL_pound_to_usgal = 1/ratio_100LL_usgal_to_pound;
+		var ratio_nmile_to_kilometer = 1.852;
+		var ratio_kilometer_to_nmile = 1/ratio_nmile_to_kilometer;
+		var ratio_smile_to_kilometer = 1.60934;
+		var ratio_kilometer_to_smile = 1/ratio_smile_to_kilometer;
+		var ratio_meter_to_feet = 3.28084;
+		var ratio_feet_to_meter = 1/ratio_meter_to_feet;
+		var ratio_meter_to_inch = 39.3701;
+		var ratio_inch_to_meter = 1/ratio_meter_to_inch;
+		
+		var active_unit_system = "";
+		var active_aircraft = "";
+				
+		var get_imperial = function(measure) {
+			switch(measure['unit']) {
+				case "m" : return ratio_meter_to_inch * measure['value'];
+				case "kg" : return ratio_kilogram_to_pound * measure['value'];
+				case "l" : return ratio_liter_to_usgal * measure['value'];
+				default : return measure['value'];
+			}
+		}
+		
+		var get_metric = function(measure) {
+			switch(measure['unit']) {
+				case "in" : return ratio_inch_to_meter * measure['value'];
+				case "lbs" : return ratio_pound_to_kilogram * measure['value'];
+				case "USgal" : return ratio_usgal_to_liter * measure['value'];
+				default : return measure['value'];
+			}
+		}
+		
+		var load_value = function(key, value) {
+			$('#'+key).attr("imperial", get_imperial(value));
+			$('#'+key).attr("metric", get_metric(value));
+		}
+		
+		var load_aircraft_data = function(aircraft) {
+			console.log("Loading data for '" + aircraft + "'");
+			
+			$("#pilot_max").html("-").removeAttr("imperial").removeAttr("metric");
+			$("#passenger_max").html("-").removeAttr("imperial").removeAttr("metric");
+			$("#luggage_max").html("-").removeAttr("imperial").removeAttr("metric");
+			
+			$("#taxi_fuel_spinner").val(Math.round(get_metric(aircraft_data[active_aircraft]["default_taxi_fuel"])*10)/10);
+			
+			aircraft_local = aircraft_data[aircraft];
+			for (var key in aircraft_local) {
+				if (aircraft_local.hasOwnProperty(key)) {
+					load_value(key, aircraft_local[key]);
+				}
+			}
+			copy_attributes('#fuel_arm', '#taxi_fuel_arm');
+			copy_attributes('#fuel_arm', '#trip_fuel_arm');
+			$('#header-subtitle').html(aircraft + ' - ' + aircraft_local['type']);
+			$(".aircraft_call_sign").html(aircraft);
+		}
+		
+		var copy_attributes = function(source, destination) {
+			$(destination).attr("metric", $(source).attr("metric"));
+			$(destination).attr("imperial", $(source).attr("imperial"));
+		}
+		
+		var calculate_moment = function(unit) {
+			rows_local = ['aircraft','fuel','pilot','passenger','luggage'];
+			var array_length = rows_local.length;
+			for (i = 0; i < array_length; i++) {
+				imp = $('#' + rows_local[i] + "_arm").attr("imperial") * $('#' + rows_local[i] + "_weight").attr("imperial");
+				met = $('#' + rows_local[i] + "_arm").attr("metric") * $('#' + rows_local[i] + "_weight").attr("metric");
+				$('#' + rows_local[i] + "_moment").attr("metric", met);
+				$('#' + rows_local[i] + "_moment").attr("imperial", imp);
+			}
+			$('#taxi_fuel_moment').attr("metric", $('#taxi_fuel_weight').attr("metric") * $('#taxi_fuel_arm').attr("metric"));
+			$('#taxi_fuel_moment').attr("imperial", $('#taxi_fuel_weight').attr("imperial") * $('#taxi_fuel_arm').attr("imperial"));
+			$('#trip_fuel_moment').attr("metric", $('#trip_fuel_weight').attr("metric") * $('#trip_fuel_arm').attr("metric"));
+			$('#trip_fuel_moment').attr("imperial", $('#trip_fuel_weight').attr("imperial") * $('#trip_fuel_arm').attr("imperial"));
+		}
+		
+		var display_aircraft_data = function(unit) {
+						
+			$(".arm").each(function(index) {
+				$(this).html(Math.round($(this).attr(unit)*1000)/1000);
+			});
+			
+			$(".moment").each(function(index) {
+				$(this).html(Math.round($(this).attr(unit)*100)/100);
+			});
+			
+			$("#aircraft_weight, #fuel_weight").each(function(index) {
+				$(this).html(Math.round($(this).attr(unit)*100)/100);
+			});
+			
+			
+			$(".postview").each(function(index) {
+				if($(this).is('[metric]')) {
+					$(this).html(Math.round($(this).attr(unit)*100)/100);
+				} else {
+					$(this).html("-");
+				}
+			});
+			
+			$("span.weight").each(function(index) {
+				if(unit == "metric") {
+					$(this).html("kg");
+				} else {
+					$(this).html("lbs");
+				}
+			});
+			$("span.length").each(function(index) {
+				if(unit == "metric") {
+					$(this).html("m");
+				} else {
+					$(this).html("in");
+				}
+			});
+			$("span.volume").each(function(index) {
+				if(unit == "metric") {
+					$(this).html("l");
+				} else {
+					$(this).html("USgal");
+				}
+			});
+			$("span.temperature").each(function(index) {
+				if(unit == "metric") {
+					$(this).html("&#8451;");
+				} else {
+					$(this).html("&#8457;");
+				}
+			});
+			$("span.pressure").each(function(index) {
+				if(unit == "metric") {
+					$(this).html("hPa");
+				} else {
+					$(this).html("inHg");
+				}
+			});
+			$("span.velocity").each(function(index) {
+				if(unit == "metric") {
+					$(this).html("m/s");
+				} else {
+					$(this).html("kts");
+				}
+			});
+			
+			
+			if(aircraft_data[active_aircraft]["passenger_arm"]["value"] == 0) {
+				$("#passenger_spinner").prop({disabled: true}).val("0");
+			} else {
+				$("#passenger_spinner").prop({disabled: false});
+			}
+		}
+		
+		var calculate_fuel = function(unit) {
+			fuel_valves = ['fuel','taxi_fuel','trip_fuel'];
+			var array_length = fuel_valves.length;
+			for (i = 0; i < array_length; i++) {
+				mfuel = $("#" + fuel_valves[i] + "_spinner").val();
+				if(unit == "metric") {
+					$("#" + fuel_valves[i] + "_spinner").parent().attr("metric", mfuel);
+					$("#" + fuel_valves[i] + "_spinner").parent().attr("imperial", mfuel / ratio_usgal_to_liter);
+					$("#" + fuel_valves[i] + "_weight").attr("metric", mfuel * ratio_100LL_liter_to_kilogram);
+					$("#" + fuel_valves[i] + "_weight").attr("imperial", mfuel / ratio_usgal_to_liter * ratio_100LL_usgal_to_pound);
+				} else {
+					$("#" + fuel_valves[i] + "_spinner").parent().attr("metric", mfuel * ratio_usgal_to_liter);
+					$("#" + fuel_valves[i] + "_spinner").parent().attr("imperial", mfuel);
+					$("#" + fuel_valves[i] + "_weight").attr("metric", mfuel * ratio_usgal_to_liter * ratio_100LL_liter_to_kilogram);
+					$("#" + fuel_valves[i] + "_weight").attr("imperial", mfuel * ratio_100LL_usgal_to_pound);
+				}
+				//console.log("calculating Fuel: " + mfuel);
+			}
+		}
+		
+		var calculate_weights = function(unit) {
+			$(".lspinner").each(function(index) {
+				mweight = $(this).val();
+				if(unit == "metric") {
+					$(this).parent().attr("metric", mweight);
+					$(this).parent().attr("imperial", mweight / ratio_pound_to_kilogram);
+				} else {
+					$(this).parent().attr("metric", mweight / ratio_kilogram_to_pound);
+					$(this).parent().attr("imperial", mweight);
+				}
+			});
+		}
+
+		var calculate_ramp_weight = function(unit) {
+			units = ['imperial', 'metric'];
+			var array_length = units.length;
+			for (i = 0; i < array_length; i++) {
+				// Sum the total weight
+				ramp_weight_met = 0;
+				$("td.weight").each(function(index) {
+					ramp_weight_met += parseFloat($(this).attr(units[i]));
+				});
+				$("#ramp_weight_weight").attr(units[i], ramp_weight_met);
+				
+				// Sum the total moments
+				ramp_moment_met = 0;
+				$("td.moment").each(function(index) {
+					ramp_moment_met += parseFloat($(this).attr(units[i]));
+				});
+				$("#ramp_weight_moment").attr(units[i], ramp_moment_met);
+				
+				// Calcualte the arm
+				$("#ramp_weight_arm").attr(units[i], $("#ramp_weight_moment").attr(units[i]) / $("#ramp_weight_weight").attr(units[i]));
+				$("#remaining-load").attr(units[i], $("#ramp_weight_max").attr(units[i]) - $("#ramp_weight_weight").attr(units[i]));
+			}
+		}
+		
+		var calculate_to_weight = function(unit) {
+			units = ['imperial', 'metric'];
+			var array_length = units.length;
+			for (i = 0; i < array_length; i++) {
+				// Calcualte weight
+				to_weight_met = $("#ramp_weight_weight").attr(units[i]) - $("#taxi_fuel_weight").attr(units[i]);
+				$("#takeoff_weight_weight").attr(units[i], to_weight_met);
+				
+				// Caclualte moments
+				to_moment_met = $("#ramp_weight_moment").attr(units[i]) - $("#taxi_fuel_moment").attr(units[i]);
+				$("#takeoff_weight_moment").attr(units[i], to_moment_met);
+				
+				// Calcualte the arm
+				$("#takeoff_weight_arm").attr(units[i], $("#takeoff_weight_moment").attr(units[i]) / $("#takeoff_weight_weight").attr(units[i]));
+			}
+		}
+		
+		var calculate_landing_weight = function(unit) {
+			units = ['imperial', 'metric'];
+			array_length = units.length;
+			for (i = 0; i < array_length; i++) {
+				// Calcualte weight
+				landing_weight_met = $("#takeoff_weight_weight").attr(units[i]) - $("#trip_fuel_weight").attr(units[i]);
+				$("#landing_weight_weight").attr(units[i], landing_weight_met);
+				
+				// Caclualte moments
+				to_moment_met = $("#takeoff_weight_moment").attr(units[i]) - $("#trip_fuel_moment").attr(units[i]);
+				$("#landing_weight_moment").attr(units[i], to_moment_met);
+				
+				// Calcualte the arm
+				$("#landing_weight_arm").attr(units[i], $("#landing_weight_moment").attr(units[i]) / $("#landing_weight_weight").attr(units[i]));
+			}
+		}
+		
+		// Maybe there is a better way to do this! For now this works.
+		var check_point_location = function(line, point, location) {
+			// Take care of special cases first
+			if(line["x2"] == line["x1"]) {
+				switch(location) {
+					case "left"  : if(line["x2"] > point["x"]) {return 1} else {return 0};
+					case "right" : if(line["x2"] < point["x"]) {return 1} else {return 0};
+				}
+			}
+			if(line["y2"] == line["y1"]) {
+				switch(location) {
+					case "above" : if(line["y2"] < point["y"]) {return 1} else {return 0};
+					case "below" : if(line["y2"] > point["y"]) {return 1} else {return 0};
+				}
+			}
+			m = (line["y2"]-line["y1"])/(line["x2"]-line["x1"]);
+			b = line["y2"] - m * line["x2"];
+			switch(location) {
+				case "above" : if(point["y"] >   m*point["x"]+b) {return 1} else {return 0};
+				case "below" : if(point["y"] <   m*point["x"]+b) {return 1} else {return 0};
+				case "left"  : if(point["x"] < (point["y"]-b)/m) {return 1} else {return 0};
+				case "right" : if(point["x"] > (point["y"]-b)/m) {return 1} else {return 0};
+			}
+		}
+		
+		var check_weights = function(unit) {
+			to_check = ['ramp_weight','takeoff_weight'];
+			array_length = to_check.length;
+			for (i = 0; i < array_length; i++) {
+				if(parseFloat($('#' + to_check[i] + '_weight').html()) >= parseFloat($('#' + to_check[i] + '_max').html())) {
+					$('#' + to_check[i] + '_weight').parent().removeClass("good").addClass("bad");
+					console.log(to_check[i] + " -> bad : " + parseFloat($('#' + to_check[i] + '_weight').html()) + " - " + parseFloat($('#' + to_check[i] + '_max').html()) + " > 0");
+					
+					tag = "";
+					switch(to_check[i]) {
+						case 'ramp_weight': tag = "Ramp weight"; break;
+						case 'takeoff_weight': tag = "Take-off weight"; break;
+						case 'landing_weight':  tag = "Landing weight"; break;
+					}
+					$('#wandb-error-ul').append('<li>' + tag + ' exceeded by ' + Math.round(($('#' + to_check[i] + '_weight').html() - parseFloat($('#' + to_check[i] + '_max').html()))*10)/10 + " " + (unit == "metric" ? "kg" : "lbs") + '!</li>');
+				} else {
+					$('#' + to_check[i] + '_weight').parent().removeClass("bad").addClass("good");
+				}
+			}
+			
+			active_unit_system = $("#unit-system").val();
+			
+			if(parseInt($("#fuel_spinner").parent().attr(active_unit_system)) > parseInt($("#fuel_max").attr(active_unit_system))) {
+				$("#fuel_spinner").css('color','red');
+				difference = Math.round(($("#fuel_spinner").parent().attr(active_unit_system)-$("#fuel_max").attr(active_unit_system))*100)/100;
+				$('#wandb-error-ul').append('<li>Fuel capacity exceeded by ' + difference + (active_unit_system == "metric" ? "l" : "USgal") + '!</li>');
+			}
+			
+			weights_to_check = ['Luggage','Passenger','Pilot'];
+			weights_to_check_array_length = weights_to_check.length;
+			for (j = 0; j < weights_to_check_array_length; j++) {
+				if($("#" + weights_to_check[j].toLowerCase() + "_max").html() != "-") {
+					lweight = parseFloat($("#" + weights_to_check[j].toLowerCase() + "_spinner").parent().attr(active_unit_system));
+					mweight = parseFloat($("#" + weights_to_check[j].toLowerCase() + "_max").attr(active_unit_system));
+					difference = lweight - mweight;
+					console.log("Max " + weights_to_check[j].toLowerCase() + " set: " + lweight + " ? " + mweight + " = " + difference);
+					if(difference > 0) {
+						$("#" + weights_to_check[j].toLowerCase() + "_spinner").css('color','red');
+						difference = Math.round(difference*10)/10;
+						$('#wandb-error-ul').append('<li>' + weights_to_check[j] + ' weight exceeded by ' + difference + (active_unit_system == "metric" ? "kg" : "lbs") + '!</li>');
+					}
+				}
+			}
+			
+			// Check the safety enveloppe of the aircraft, the plot thing
+			points_to_check = aircraft_data[active_aircraft]["lb_plot"]["check"];
+			weights_to_check = ['Ramp','Takeoff','Landing'];
+			points_to_check_array_length = points_to_check.length;
+			weights_to_check_array_length = weights_to_check.length;
+			for (j = 0; j < weights_to_check_array_length; j++) {
+				isoutside = false;
+				i = 0;
+				while(i < points_to_check_array_length) {
+					// No, the "_weight_weight" is not a bug!!!! Just a weird naming system...
+					ly = $('#' + weights_to_check[j].toLowerCase() + '_weight_weight').attr("metric");
+					lx = $('#' + weights_to_check[j].toLowerCase() + '_weight_' + aircraft_data[active_aircraft]["lb_plot"]["xaxis"]).attr("metric");
+					x1 = aircraft_data[active_aircraft]["lb_plot"]["x"][i]
+					x2 = aircraft_data[active_aircraft]["lb_plot"]["x"][i+1]
+					y1 = aircraft_data[active_aircraft]["lb_plot"]["y"][i]
+					y2 = aircraft_data[active_aircraft]["lb_plot"]["y"][i+1]
+					if(check_point_location({x1:x1,x2:x2,y1:y1,y2:y2}, {x:lx,y:ly}, points_to_check[i]) == 0) {
+						isoutside = true;
+						console.log(weights_to_check[j] + " -> outside area [" + lx + "," + ly + "] !" + points_to_check[i]);
+					}
+					i++;
+				}
+				if(isoutside) {
+					$('#wandb-error-ul').append('<li>' + weights_to_check[j] + ' weight ' + aircraft_data[active_aircraft]["lb_plot"]["xaxis"] + ' is outside the safe area! (see plot)</li>');
+					pcolor = pred;
+				}
+			}
+		}
+		
+		var show_warnings = function() {
+			if($('#wandb-error-ul').find('li').length > 0) {
+				$('#wandb-error').css('display','block');
+			} else {
+				$('#wandb-error').css('display','none');
+			}
+		}
+		
+		var clear_warnings = function() {
+			$('#wandb-error-ul').empty();
+			$('input.lspinner').css('color','black');
+			$('input.vspinner').css('color','black');
+			pcolor = pgreen;
+		}
+		
+		var pgreen = 'rgb(60,120,60)';
+		var pred = 'rgb(170,70,70)';
+		var pcolor = pgreen;
+		var plot_data = function() {
+			
+			var dot_ramp = {
+			  x: [$('#ramp_weight_' + aircraft_data[active_aircraft]["lb_plot"]["xaxis"]).attr(aircraft_data[active_aircraft]["lb_plot"]["unit"])],
+			  y: [$('#ramp_weight_weight').attr(aircraft_data[active_aircraft]["lb_plot"]["unit"])],
+			  mode: 'markers',
+			  name: 'Ramp'
+			};
+			
+			var dot_takeoff = {
+			  x: [$('#takeoff_weight_' + aircraft_data[active_aircraft]["lb_plot"]["xaxis"]).attr(aircraft_data[active_aircraft]["lb_plot"]["unit"])],
+			  y: [$('#takeoff_weight_weight').attr(aircraft_data[active_aircraft]["lb_plot"]["unit"])],
+			  mode: 'markers',
+			  name: 'Take-off'
+			};
+			
+			var dot_landing = {
+			  x: [$('#landing_weight_' + aircraft_data[active_aircraft]["lb_plot"]["xaxis"]).attr(aircraft_data[active_aircraft]["lb_plot"]["unit"])],
+			  y: [$('#landing_weight_weight').attr(aircraft_data[active_aircraft]["lb_plot"]["unit"])],
+			  mode: 'markers',
+			  name: 'Landing'
+			};
+			
+			var balance_contour = {
+			  x: aircraft_data[active_aircraft]["lb_plot"]["x"],
+			  y: aircraft_data[active_aircraft]["lb_plot"]["y"],
+			  mode: 'lines',
+			  name: 'Balance',
+			  marker: {
+				color: pcolor
+				}
+			};
+
+			var data = [ balance_contour, dot_ramp, dot_takeoff, dot_landing];
+
+			var layout = {
+			  title : 'Weight & Balance (Normal Category)',
+			  xaxis : {'title' : aircraft_data[active_aircraft]['lb_plot']['xlab']},
+			  yaxis : {'title' : aircraft_data[active_aircraft]['lb_plot']['ylab']}
+        	};
+
+			Plotly.newPlot('bandl-plot', data, layout);
+		}
+		
+		var write_data = function(unit) {
+			clear_warnings();
+			calculate_fuel(unit);
+			calculate_weights(unit);
+			calculate_moment(unit);
+			calculate_ramp_weight(unit);
+			calculate_to_weight(unit);
+			calculate_landing_weight(unit);
+			
+			calculate_performance(unit);
+			
+			display_aircraft_data(unit);
+			check_weights(unit);
+			show_warnings(unit);
+		}
+		
+		var calculate_pressure_altitude = function() {
+			altitude = parseFloat($("#performance-altitude").val());
+			qnh  = parseFloat($("#performance-pressure").val());
+			pa = altitude + (1013.25 - qnh) * 30;
+			$("#performance-pressure-altitude").val(pa);
+		}
+		
+		var calculate_density_altitude = function() {
+			temperature = parseFloat($("#performance-temperature").val());
+			pa = parseFloat($("#performance-pressure-altitude").val());
+			isa = (15-(pa/1000*2));
+			da = pa + ((temperature - isa) * 120);
+			$("#performance-density-altitude").val(Math.round(da*10)/10);
+		}
+		
+		var calculate_performance = function(unit) {
+			console.log("Calculating performnance!")
+			calculate_pressure_altitude();
+			calculate_density_altitude();
+		}
+		
+		var load_aircrafts = function() {
+			$.each(aircraft_data, function(k, v) {
+				$('#selector-aircraft').append('<option val="' + k + '">' + k + '</option>');
+			});
+		}
+		
+		$(".vspinner, .lspinner").change(function() {
+			write_data(active_unit_system);
+			plot_data();
+		});
+		
+		var apply_transformation_spinners = function(unit_system) {
+			$("#fuel_spinner").val(Math.round($("#fuel_spinner").parent().attr(unit_system)*100)/100);
+			$("#taxi_fuel_spinner").val(Math.round($("#taxi_fuel_spinner").parent().attr(unit_system)*100)/100);
+			$("#trip_fuel_spinner").val(Math.round($("#trip_fuel_spinner").parent().attr(unit_system)*100)/100);
+			$("#pilot_spinner").val(Math.round($("#pilot_spinner").parent().attr(unit_system)*100)/100);
+			$("#passenger_spinner").val(Math.round($("#passenger_spinner").parent().attr(unit_system)*100)/100);
+			$("#luggage_spinner").val(Math.round($("#luggage_spinner").parent().attr(unit_system)*100)/100);
+		}
+		
+		$("#unit-system").change(function() {
+			active_unit_system = $('#unit-system option').filter(":selected").val();
+			apply_transformation_spinners(active_unit_system);
+			write_data(active_unit_system);
+			plot_data();
+		});
+		
+		$("#selector-aircraft").change(function() {
+			active_aircraft = $('#selector-aircraft option').filter(":selected").val();
+			load_aircraft_data(active_aircraft);
+			write_data(active_unit_system);
+			$("#fuel-percentage").trigger("change");
+			plot_data();
+		});
+		
+		$("#fuel-percentage").change(function() {
+			$("#fuel-liter").val(Math.round($("#fuel_max").attr("metric")*$("#fuel-percentage").val()/100*10)/10);
+			$("#fuel-gallon").val(Math.round($("#fuel_max").attr("imperial")*$("#fuel-percentage").val()/100*10)/10);
+			$("#fuel-kilogram").val(Math.round($("#fuel_max").attr("metric")*$("#fuel-percentage").val()*ratio_100LL_liter_to_kilogram/100*10)/10);
+			$("#fuel-pounds").val(Math.round($("#fuel_max").attr("imperial")*$("#fuel-percentage").val()*ratio_100LL_usgal_to_pound/100*10)/10);
+		});
+		
+		$("#fuel-gallon").change(function() {
+			$("#fuel-liter").val(Math.round($("#fuel-gallon").val()*ratio_usgal_to_liter*10)/10);
+			$("#fuel-percentage").val(Math.round($("#fuel-gallon").val()/$("#fuel_max").attr("imperial")*100*10)/10);
+			$("#fuel-kilogram").val(Math.round($("#fuel_max").attr("metric")*$("#fuel-percentage").val()*ratio_100LL_liter_to_kilogram/100*100)/100);
+			$("#fuel-pounds").val(Math.round($("#fuel_max").attr("imperial")*$("#fuel-percentage").val()*ratio_100LL_usgal_to_pound/100*100)/100);
+		});
+		
+		$("#fuel-liter").change(function() {
+			$("#fuel-gallon").val(Math.round($("#fuel-liter").val()*ratio_liter_to_usgal*10)/10);
+			$("#fuel-percentage").val(Math.round($("#fuel-liter").val()/$("#fuel_max").attr("metric")*100*10)/10);
+			$("#fuel-kilogram").val(Math.round($("#fuel_max").attr("metric")*$("#fuel-percentage").val()*ratio_100LL_liter_to_kilogram/100*100)/100);
+			$("#fuel-pounds").val(Math.round($("#fuel_max").attr("imperial")*$("#fuel-percentage").val()*ratio_100LL_usgal_to_pound/100*100)/100);
+		});
+		
+		$("#fuel-kilogram").change(function() {
+			$("#fuel-liter").val(Math.round($("#fuel-kilogram").val()*ratio_100LL_kilogram_to_liter*100)/100);
+			$("#fuel-gallon").val(Math.round($("#fuel-liter").val()*ratio_liter_to_usgal*100)/100);
+			$("#fuel-percentage").val(Math.round($("#fuel-liter").val()/$("#fuel_max").attr("metric")*100*10)/10);
+			$("#fuel-pounds").val(Math.round($("#fuel-gallon").val()*ratio_100LL_usgal_to_pound*100)/100);
+		});
+		
+		$("#fuel-pounds").change(function() {
+			$("#fuel-gallon").val(Math.round($("#fuel-pounds").val()*ratio_100LL_pound_to_usgal*100)/100);
+			$("#fuel-liter").val(Math.round($("#fuel-gallon").val()*ratio_usgal_to_liter*100)/100);
+			$("#fuel-kilogram").val(Math.round($("#fuel-liter").val()*ratio_100LL_liter_to_kilogram*100)/100);
+			$("#fuel-percentage").val(Math.round($("#fuel-liter").val()/$("#fuel_max").attr("metric")*100*10)/10);
+		});
+		
+		$("#weight-kilogram").change(function() {
+			$("#weight-pound").val(Math.round($("#weight-kilogram").val()*ratio_kilogram_to_pound*1000)/1000);
+		});
+		
+		$("#weight-pound").change(function() {
+			$("#weight-kilogram").val(Math.round($("#weight-pound").val()*ratio_pound_to_kilogram*1000)/1000);
+		});
+		
+		$("#distance-kilometer").change(function() {
+			mm = $(this).val();
+			$("#distance-miles").val(Math.round(mm*ratio_kilometer_to_nmile*1000)/1000);
+			$("#distance-smiles").val(Math.round(mm*ratio_kilometer_to_smile*1000)/1000);
+			$("#distance-feet").val(Math.round(mm*1000*ratio_meter_to_feet*1000)/1000);
+			$("#distance-inch").val(Math.round(mm*1000*ratio_meter_to_inch*1000)/1000);
+		});
+		
+		$("#distance-miles").change(function() {
+			mm = $(this).val()*ratio_nmile_to_kilometer;
+			$("#distance-kilometer").val(Math.round(mm*1000)/1000);
+			$("#distance-smiles").val(Math.round(mm*ratio_kilometer_to_smile*1000)/1000);
+			$("#distance-feet").val(Math.round(mm*1000*ratio_meter_to_feet*1000)/1000);
+			$("#distance-inch").val(Math.round(mm*1000*ratio_meter_to_inch*1000)/1000);
+		});
+		
+		$("#distance-smiles").change(function() {
+			mm = $(this).val()*ratio_smile_to_kilometer;
+			$("#distance-kilometer").val(Math.round(mm*1000)/1000);
+			$("#distance-miles").val(Math.round(mm*ratio_kilometer_to_nmile*1000)/1000);
+			$("#distance-feet").val(Math.round(mm*1000*ratio_meter_to_feet*1000)/1000);
+			$("#distance-inch").val(Math.round(mm*1000*ratio_meter_to_inch*1000)/1000);
+		});
+		
+		$("#distance-feet").change(function() {
+			mm = $(this).val()*ratio_feet_to_meter/1000;
+			$("#distance-kilometer").val(Math.round(mm*1000)/1000);
+			$("#distance-miles").val(Math.round(mm*ratio_kilometer_to_nmile*1000)/1000);
+			$("#distance-smiles").val(Math.round(mm*ratio_kilometer_to_smile*1000)/1000);
+			$("#distance-inch").val(Math.round(mm*1000*ratio_meter_to_inch*1000)/1000);
+		});
+		
+		$("#distance-inch").change(function() {
+			mm = $(this).val()*ratio_inch_to_meter;
+			$("#distance-kilometer").val(Math.round(mm/1000*1000)/1000);
+			$("#distance-miles").val(Math.round(mm/1000*ratio_kilometer_to_nmile*1000)/1000);
+			$("#distance-smiles").val(Math.round(mm/1000*ratio_kilometer_to_smile*1000)/1000);
+			$("#distance-feet").val(Math.round(mm*ratio_meter_to_feet*1000)/1000);
+		});
+		
+		$(document).ready(function() {
+			load_aircrafts();
+			active_unit_system = $('#unit-system option').filter(":selected").val();
+			active_aircraft = $('#selector-aircraft option').filter(":selected").val()
+			load_aircraft_data(active_aircraft);
+				
+			write_data(active_unit_system);
+			plot_data();
+
+			$("#distance-miles").trigger("change");
+			$("#weight-kilogram").trigger("change");
+			$("#fuel-percentage").trigger("change");
+		});
+				
+	</script>
+
+  </body>
+</html>
+
+
+
+
+
